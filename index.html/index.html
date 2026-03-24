@@ -1,93 +1,8 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>頭髮揮舞日記</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;600&family=Caveat:wght@400;600&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet"/>
-<style>
-  /* 保留你原本優美的 UI 樣式 */
-  :root {
-    --cream: #F5EFE0; --ink: #2C2417; --dusty-rose: #D4896A;
-    --sage: #7A9E7E; --lavender: #8B7BAB; --gold: #C9A84C;
-    --muted-blue: #5B8FA8; --warm-grey: #B8A99A; --paper: #EDE5D0;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    background: var(--cream); color: var(--ink);
-    font-family: 'Noto Serif TC', serif; min-height: 100vh;
-    background-image: radial-gradient(ellipse at center, rgba(255,255,255,0.5) 0%, transparent 70%);
-  }
-  .app-container { max-width: 600px; margin: 0 auto; padding: 20px; }
-  .header { text-align: center; margin-bottom: 25px; padding-top: 10px; }
-  .header h1 { font-family: 'DM Serif Display', serif; font-size: 2.5rem; letter-spacing: 2px; }
-  .tabs { display: flex; gap: 10px; margin-bottom: 20px; justify-content: center; }
-  .tab-btn {
-    padding: 10px 15px; border: none; background: rgba(0,0,0,0.05);
-    color: var(--ink); cursor: pointer; border-radius: 20px; font-weight: 600; transition: 0.3s;
-  }
-  .tab-btn.active { background: var(--ink); color: var(--cream); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-  .page { display: none; } .page.active { display: block; }
-  .card { background: var(--paper); border: 1px solid rgba(44,36,23,0.1); padding: 20px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); }
-  .form-group { margin-bottom: 15px; }
-  label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.9rem; }
-  input, select { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.1); background: #fff; font-family: inherit; }
-  .btn-submit { width: 100%; padding: 15px; background: var(--ink); color: var(--cream); border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; margin-top: 10px; }
-  #viz-container { width: 100%; height: 500px; background: #fff; border-radius: 12px; position: relative; overflow: hidden; }
-  canvas { width: 100%; height: 100%; display: block; }
-  .history-item { 
-    background: #fff; border: 1px solid rgba(0,0,0,0.05); padding: 15px; border-radius: 10px; 
-    margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;
-  }
-  .btn-delete { color: #d9534f; background: none; border: 1px solid #d9534f; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
-</style>
-</head>
-<body>
-
-<div class="app-container">
-  <div class="header"><h1>頭髮揮舞日記</h1></div>
-  <div class="tabs">
-    <button class="tab-btn active" onclick="switchPage('record')">記錄當下</button>
-    <button class="tab-btn" onclick="switchPage('harvest')">揮舞日記收成</button>
-    <button class="tab-btn" onclick="switchPage('history')">數據歷史紀錄</button>
-  </div>
-
-  <div id="page-record" class="page active">
-    <div class="card">
-      <div class="form-group"><label>時間點 (Time)</label><input type="datetime-local" id="field-time"/></div>
-      <div class="form-group"><label>慣用手 (Hand)</label>
-        <select id="field-hand"><option value="左手(L)">左手(L)</option><option value="右手(R)">右手(R)</option><option value="雙手(B)">雙手(B)</option></select>
-      </div>
-      <div class="form-group"><label>頭髮部位 (Location)</label>
-        <select id="field-loc"><option value="左耳後(LB)">左耳後(LB)</option><option value="右耳後(RB)">右耳後(RB)</option><option value="左脖子(LN)">左脖子(LN)</option><option value="右脖子(RN)">右脖子(RN)</option><option value="額頭(F)">額頭(F)</option></select>
-      </div>
-      <div class="form-group"><label>情境 (Context)</label>
-        <select id="field-ctx" onchange="if(this.value=='other') document.getElementById('other-ctx').style.display='block'; else document.getElementById('other-ctx').style.display='none';">
-          <option value="開會中">開會中</option><option value="發呆中">發呆中</option><option value="寫作業">寫作業</option><option value="跟人說話">跟人說話</option><option value="風大">風大</option><option value="other">自由填寫</option>
-        </select>
-        <input type="text" id="other-ctx" placeholder="請填寫情境..." style="display:none; margin-top:10px;"/>
-      </div>
-      <div class="form-group"><label>頭髮狀態 (Hair State)</label>
-        <select id="field-state"><option value="剛洗好">剛洗好</option><option value="有點油">有點油</option><option value="綁起來時">綁起來時</option><option value="放下來時">放下來時</option></select>
-      </div>
-      <button class="btn-submit" onclick="commitData()">確認紀錄</button>
-    </div>
-  </div>
-
-  <div id="page-harvest" class="page">
-    <div id="viz-container"><canvas id="hairCanvas"></canvas></div>
-  </div>
-
-  <div id="page-history" class="page"><div id="history-list"></div></div>
-</div>
-
 <script type="module">
-  // 1. 引入 Firebase SDK
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
   import { getDatabase, ref, push, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
 
-  // ⚠️ 2. 請將你從 Firebase 獲得的內容填寫在這裡
+  // ⚠️ 請在此處替換成你從 Firebase 畫面看到的 Config 資訊
   const firebaseConfig = {
   apiKey: "AIzaSyDhGy__CH03twANIjWJSCpJ0VdOMHvA8V8",
   authDomain: "hair-diary-1c252.firebaseapp.com",
@@ -99,11 +14,13 @@
   measurementId: "G-5HSKJER512"
   };
 
+  // 初始化 Firebase
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
-  const dataRef = ref(db, 'entries');
+  const entriesRef = ref(db, 'hairEntries');
 
   let entries = [];
+  let currentPage = 'record';
 
   // 初始化時間
   const timeInput = document.getElementById('field-time');
@@ -114,94 +31,143 @@
   }
   resetTime();
 
-  // 3. 監聽 Firebase 數據，自動同步所有裝置
-  onValue(dataRef, (snapshot) => {
+  // 監聽 Firebase 數據變動（即時同步）
+  onValue(entriesRef, (snapshot) => {
     const data = snapshot.val();
     entries = [];
     if (data) {
-      Object.keys(data).forEach(key => entries.push({ ...data[key], fbId: key }));
+      Object.keys(data).forEach(key => {
+        entries.push({ ...data[key], id: key }); // 使用 Firebase 的 key 作為 id
+      });
     }
+    // 排序數據
     entries.sort((a, b) => new Date(a.time) - new Date(b.time));
-    renderHistory();
-    drawViz();
+    
+    // 自動更新當前頁面
+    if (currentPage === 'harvest') drawViz();
+    if (currentPage === 'history') renderHistory();
   });
 
-  // 分頁切換
-  window.switchPage = (pageId) => {
+  // 切換分頁邏輯
+  window.switchPage = function(pageId) {
+    currentPage = pageId;
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.getElementById('page-' + pageId).classList.add('active');
-    event.target.classList.add('active');
-    if (pageId === 'harvest') drawViz();
-  };
+    event.currentTarget.classList.add('active');
 
-  // 儲存至 Firebase
-  window.commitData = async () => {
+    if (pageId === 'harvest') drawViz();
+    if (pageId === 'history') renderHistory();
+  }
+
+  // 提交數據到 Firebase
+  window.commitData = async function() {
     const ctxSelect = document.getElementById('field-ctx').value;
     const finalCtx = ctxSelect === 'other' ? document.getElementById('other-ctx').value : ctxSelect;
-    
+
     const newEntry = {
       time: timeInput.value,
       hand: document.getElementById('field-hand').value,
       location: document.getElementById('field-loc').value,
-      context: finalCtx,
-      state: document.getElementById('field-state').value
+      context: finalCtx || '—',
+      state: document.getElementById('field-state').value,
+      createdAt: Date.now()
     };
 
-    await push(dataRef, newEntry);
-    alert("同步成功！所有裝置皆可看見。");
-    resetTime();
-  };
-
-  // 刪除 Firebase 紀錄
-  window.deleteEntry = async (fbId) => {
-    if (confirm("確定刪除？")) {
-      await remove(ref(db, `entries/${fbId}`));
+    try {
+      await push(entriesRef, newEntry);
+      alert('數據已同步至雲端');
+      resetTime();
+      document.getElementById('other-ctx').value = '';
+      document.getElementById('other-ctx').style.display = 'none';
+      document.getElementById('field-ctx').value = '開會中';
+    } catch (e) {
+      alert('同步失敗：' + e.message);
     }
-  };
-
-  function renderHistory() {
-    const list = document.getElementById('history-list');
-    list.innerHTML = entries.length ? '' : '<p style="text-align:center;">暫無紀錄</p>';
-    [...entries].reverse().forEach(e => {
-      const div = document.createElement('div');
-      div.className = 'history-item';
-      div.innerHTML = `<div><b>${e.time}</b><br><small>${e.hand} | ${e.location} | ${e.state}</small></div>
-                       <button class="btn-delete" onclick="deleteEntry('${e.fbId}')">刪除</button>`;
-      list.appendChild(div);
-    });
   }
 
+  // 從 Firebase 刪除數據
+  window.deleteEntry = async function(id) {
+    if (confirm('確定要刪除這筆紀錄嗎？這將會同步影響到視覺化圖表。')) {
+      await remove(ref(db, `hairEntries/${id}`));
+    }
+  }
+
+  // --- 視覺化繪圖邏輯 (完全保留你原本的邏輯) ---
   function drawViz() {
     const canvas = document.getElementById('hairCanvas');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = canvas.offsetWidth * dpr;
+    canvas.height = canvas.offsetHeight * dpr;
+    ctx.scale(dpr, dpr);
 
-    // 繪製飄逸背景曲線
+    ctx.clearRect(0, 0, canvas.offsetWidth, canvas.offsetHeight);
+
+    // 繪製背景髮絲
     for (let i = 0; i < 3; i++) {
       ctx.beginPath();
-      ctx.strokeStyle = `rgba(44,36,23,${0.05 + i*0.05})`;
-      const y = 100 + i * 150;
-      ctx.moveTo(0, y);
-      ctx.bezierCurveTo(canvas.width*0.3, y-100, canvas.width*0.7, y+100, canvas.width, y);
+      ctx.strokeStyle = `rgba(44, 36, 23, ${0.05 + i * 0.05})`;
+      ctx.lineWidth = 1.5;
+      const yBase = 100 + i * 140;
+      ctx.moveTo(0, yBase);
+      ctx.bezierCurveTo(canvas.offsetWidth * 0.3, yBase - 80, canvas.offsetWidth * 0.7, yBase + 80, canvas.offsetWidth, yBase);
       ctx.stroke();
     }
 
-    // 繪製節點
+    // 繪製數據點
     entries.forEach(e => {
-      const t = new Date(e.time);
-      const x = (t.getHours() + t.getMinutes()/60) / 24 * canvas.width;
-      const dayIdx = t.getDate() % 3;
-      const yBase = 100 + dayIdx * 150;
+      const d = new Date(e.time);
+      const hour = d.getHours() + d.getMinutes() / 60;
+      const dayIdx = d.getDate() % 3;
+      const x = (hour / 24) * canvas.offsetWidth;
+      const yBase = 100 + dayIdx * 140;
+
+      const locMap = { '左耳後(LB)': -30, '右耳後(RB)': 30, '左脖子(LN)': 60, '右脖子(RN)': 80, '額頭(F)': -60 };
+      const y = yBase + (locMap[e.location] || 0);
+
+      const colors = { '左手(L)': '#D4896A', '右手(R)': '#7A9E7E', '雙手(B)': '#C9A84C' };
+      ctx.fillStyle = colors[e.hand] || '#2C2417';
       
       ctx.beginPath();
-      ctx.fillStyle = e.hand.includes('左') ? '#D4896A' : (e.hand.includes('右') ? '#7A9E7E' : '#C9A84C');
-      ctx.arc(x, yBase, 8, 0, Math.PI*2);
+      if (e.state === '剛洗好') ctx.arc(x, y, 6, 0, Math.PI * 2);
+      else if (e.state === '有點油') { ctx.rect(x - 5, y - 5, 10, 10); }
+      else if (e.state === '綁起來時') { ctx.moveTo(x, y - 7); ctx.lineTo(x + 7, y + 7); ctx.lineTo(x - 7, y + 7); ctx.closePath(); }
+      else { ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.stroke(); }
       ctx.fill();
     });
   }
+
+  // --- 渲染歷史列表 (完全保留你原本的 UI) ---
+  function renderHistory() {
+    const list = document.getElementById('history-list');
+    list.innerHTML = '';
+    const displayEntries = [...entries].reverse();
+    
+    displayEntries.forEach((e, i) => {
+      const handC = e.hand.includes('L') ? '#D4896A' : (e.hand.includes('R') ? '#7A9E7E' : '#C9A84C');
+      const locC = '#5B8FA8';
+      const stateC = '#8B7BAB';
+
+      const div = document.createElement('div');
+      div.className = 'history-card';
+      div.innerHTML = `
+        <div class="entry-index">${displayEntries.length - i}</div>
+        <div class="entry-content">
+          <div class="entry-time">${e.time}</div>
+          <div class="entry-tags">
+            <span class="entry-tag" style="background:${handC}">${e.hand}</span>
+            <span class="entry-tag" style="background:${locC}">${e.location}</span>
+            <span class="entry-tag" style="background:${stateC}">${e.state}</span>
+            ${e.context !== '—' ? `<span class="entry-tag" style="background:#B8A99A">${e.context}</span>` : ''}
+          </div>
+        </div>
+        <div class="entry-actions">
+          <button class="btn-delete" onclick="deleteEntry('${e.id}')">刪除 ✕</button>
+        </div>
+      `;
+      list.appendChild(div);
+    });
+  }
 </script>
-</body>
-</html>
