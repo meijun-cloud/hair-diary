@@ -571,46 +571,61 @@
   // ——— STATE ———
   let entries = [];
   let selections = { hand: null, location: null, context: null, state: null };
-  const STORAGE_KEY = 'hair_diary_entries_v1';
 
-  // ——— STORAGE (Vercel KV via localStorage fallback + broadcast) ———
+  // ——— FIREBASE CONFIG ———
+  const FIREBASE_URL = 'https://hair-diary-1c252-default-rtdb.asia-southeast1.firebaseio.com';
+  const DB_PATH = '/entries';
+
+  // ——— FIREBASE REST API ———
   async function loadEntries() {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      entries = raw ? JSON.parse(raw) : [];
-    } catch(e) { entries = []; }
+      const res = await fetch(`${FIREBASE_URL}${DB_PATH}.json`);
+      const data = await res.json();
+      if (data) {
+        // Firebase 回傳物件，轉成陣列並依時間倒序排列
+        entries = Object.values(data).sort((a, b) => b.timestamp - a.timestamp);
+      } else {
+        entries = [];
+      }
+    } catch(e) {
+      console.error('載入失敗', e);
+      entries = [];
+    }
   }
 
   async function saveEntries() {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(entries)); } catch(e) {}
-    // Broadcast to other tabs
+    // 將 entries 陣列轉成以 id 為 key 的物件存入 Firebase
+    const obj = {};
+    entries.forEach(e => { obj[e.id] = e; });
     try {
-      const bc = new BroadcastChannel('hair_diary');
-      bc.postMessage({ type: 'update', entries });
-      bc.close();
-    } catch(e) {}
+      await fetch(`${FIREBASE_URL}${DB_PATH}.json`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(obj)
+      });
+    } catch(e) {
+      console.error('儲存失敗', e);
+    }
   }
 
-  // Listen for cross-tab sync
-  try {
-    const bc = new BroadcastChannel('hair_diary');
-    bc.onmessage = (e) => {
-      if (e.data.type === 'update') {
-        entries = e.data.entries;
-        renderCurrentPage();
-      }
-    };
-  } catch(e) {}
-
-  // Also listen to storage events (cross-tab fallback)
-  window.addEventListener('storage', (e) => {
-    if (e.key === STORAGE_KEY && e.newValue) {
+  // ——— 即時監聽 Firebase (Server-Sent Events) ———
+  function startRealtimeSync() {
+    const evtSource = new EventSource(`${FIREBASE_URL}${DB_PATH}.json`);
+    evtSource.addEventListener('put', (e) => {
       try {
-        entries = JSON.parse(e.newValue);
+        const payload = JSON.parse(e.data);
+        if (payload.data) {
+          entries = Object.values(payload.data).sort((a, b) => b.timestamp - a.timestamp);
+        } else {
+          entries = [];
+        }
         renderCurrentPage();
-      } catch(e2) {}
-    }
-  });
+      } catch(err) {}
+    });
+    evtSource.onerror = () => {
+      // 連線中斷時靜默重試，Firebase SSE 會自動重連
+    };
+  }
 
   // ——— TIME ———
   function formatTime(date) {
@@ -893,6 +908,7 @@
   async function init() {
     await loadEntries();
     initTimeInput();
+    startRealtimeSync();
   }
 
   init();
