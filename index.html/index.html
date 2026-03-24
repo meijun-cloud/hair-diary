@@ -1,173 +1,917 @@
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-  import { getDatabase, ref, push, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>頭髮揮舞日記</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;600&family=Caveat:wght@400;600&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --cream: #F5EFE0;
+    --ink: #2C2417;
+    --dusty-rose: #D4896A;
+    --sage: #7A9E7E;
+    --lavender: #8B7BAB;
+    --gold: #C9A84C;
+    --muted-blue: #5B8FA8;
+    --warm-grey: #B8A99A;
+    --paper: #EDE5D0;
+    --light-ink: #6B5B3E;
+  }
 
-  // ⚠️ 請在此處替換成你從 Firebase 畫面看到的 Config 資訊
-  const firebaseConfig = {
-  apiKey: "AIzaSyDhGy__CH03twANIjWJSCpJ0VdOMHvA8V8",
-  authDomain: "hair-diary-1c252.firebaseapp.com",
-  databaseURL: "https://hair-diary-1c252-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "hair-diary-1c252",
-  storageBucket: "hair-diary-1c252.firebasestorage.app",
-  messagingSenderId: "713386825016",
-  appId: "1:713386825016:web:a2c1148a89237b08261dcd",
-  measurementId: "G-5HSKJER512"
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--cream);
+    color: var(--ink);
+    font-family: 'Noto Serif TC', serif;
+    min-height: 100vh;
+    background-image:
+      radial-gradient(ellipse at 20% 0%, rgba(212,137,106,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 100%, rgba(139,123,171,0.08) 0%, transparent 60%);
+  }
+
+  /* HEADER */
+  .app-header {
+    text-align: center;
+    padding: 2rem 1rem 1.2rem;
+    border-bottom: 1.5px solid rgba(44,36,23,0.15);
+    position: relative;
+  }
+  .app-header::before {
+    content: '✦';
+    display: block;
+    color: var(--dusty-rose);
+    font-size: 0.85rem;
+    margin-bottom: 0.3rem;
+    letter-spacing: 0.5rem;
+  }
+  .app-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(1.6rem, 5vw, 2.4rem);
+    font-style: italic;
+    letter-spacing: 0.05em;
+    color: var(--ink);
+  }
+  .app-title span { color: var(--dusty-rose); }
+  .app-subtitle {
+    font-family: 'Caveat', cursive;
+    font-size: 0.9rem;
+    color: var(--warm-grey);
+    margin-top: 0.2rem;
+  }
+
+  /* NAV */
+  nav {
+    display: flex;
+    justify-content: center;
+    gap: 0;
+    padding: 0 1rem;
+    border-bottom: 1.5px solid rgba(44,36,23,0.12);
+    background: rgba(245,239,224,0.9);
+    backdrop-filter: blur(8px);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  nav button {
+    flex: 1;
+    max-width: 200px;
+    padding: 0.85rem 0.5rem;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    font-family: 'Noto Serif TC', serif;
+    font-size: 0.82rem;
+    color: var(--warm-grey);
+    transition: all 0.25s;
+    letter-spacing: 0.05em;
+  }
+  nav button.active {
+    color: var(--ink);
+    border-bottom-color: var(--dusty-rose);
+    font-weight: 600;
+  }
+  nav button:hover { color: var(--ink); }
+
+  /* PAGES */
+  .page { display: none; padding: 1.5rem 1rem 3rem; max-width: 700px; margin: 0 auto; }
+  .page.active { display: block; }
+
+  .page-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.5rem;
+    font-style: italic;
+    margin-bottom: 1.5rem;
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .page-title::before { content: '—'; color: var(--dusty-rose); }
+
+  /* FORM */
+  .form-card {
+    background: var(--paper);
+    border: 1px solid rgba(44,36,23,0.1);
+    border-radius: 2px;
+    padding: 1.5rem;
+    box-shadow: 3px 3px 0 rgba(44,36,23,0.06);
+  }
+
+  .form-row { margin-bottom: 1.3rem; }
+  .form-label {
+    display: block;
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--light-ink);
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+  }
+  .form-label span {
+    font-family: 'Caveat', cursive;
+    text-transform: none;
+    font-size: 0.85rem;
+    font-weight: 400;
+    letter-spacing: 0;
+    color: var(--warm-grey);
+    margin-left: 0.4rem;
+  }
+
+  .time-display {
+    font-family: 'Caveat', cursive;
+    font-size: 1.4rem;
+    color: var(--dusty-rose);
+    background: rgba(212,137,106,0.08);
+    border: 1px dashed rgba(212,137,106,0.4);
+    padding: 0.5rem 1rem;
+    border-radius: 2px;
+    display: inline-block;
+  }
+
+  .time-input-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+
+  input[type="datetime-local"]#time-input {
+    font-family: 'Caveat', cursive;
+    font-size: 1.2rem;
+    color: var(--dusty-rose);
+    background: rgba(212,137,106,0.08);
+    border: 1px dashed rgba(212,137,106,0.4);
+    padding: 0.45rem 0.8rem;
+    border-radius: 2px;
+    cursor: pointer;
+    outline: none;
+    -webkit-appearance: none;
+    color-scheme: light;
+    flex: 1;
+    min-width: 0;
+  }
+  input[type="datetime-local"]#time-input:focus {
+    border-color: var(--dusty-rose);
+    background: rgba(212,137,106,0.14);
+  }
+
+  .time-reset-btn {
+    padding: 0.35rem 0.7rem;
+    border: 1.5px solid rgba(212,137,106,0.4);
+    border-radius: 2px;
+    background: transparent;
+    cursor: pointer;
+    font-family: 'Caveat', cursive;
+    font-size: 0.85rem;
+    color: var(--dusty-rose);
+    white-space: nowrap;
+    transition: all 0.18s;
+    flex-shrink: 0;
+  }
+  .time-reset-btn:hover {
+    background: rgba(212,137,106,0.12);
+    border-color: var(--dusty-rose);
+  }
+
+  .option-group { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .option-btn {
+    padding: 0.4rem 0.9rem;
+    border: 1.5px solid rgba(44,36,23,0.2);
+    border-radius: 2px;
+    background: transparent;
+    cursor: pointer;
+    font-family: 'Caveat', cursive;
+    font-size: 1rem;
+    color: var(--light-ink);
+    transition: all 0.2s;
+    position: relative;
+  }
+  .option-btn:hover { border-color: var(--dusty-rose); color: var(--dusty-rose); }
+  .option-btn.selected {
+    background: var(--ink);
+    color: var(--cream);
+    border-color: var(--ink);
+  }
+
+  .option-btn[data-color="L"].selected { background: var(--muted-blue); border-color: var(--muted-blue); }
+  .option-btn[data-color="R"].selected { background: var(--dusty-rose); border-color: var(--dusty-rose); }
+  .option-btn[data-color="B"].selected { background: var(--lavender); border-color: var(--lavender); }
+
+  .option-btn[data-color="LB"].selected { background: var(--sage); border-color: var(--sage); }
+  .option-btn[data-color="RB"].selected { background: var(--dusty-rose); border-color: var(--dusty-rose); }
+  .option-btn[data-color="LN"].selected { background: var(--muted-blue); border-color: var(--muted-blue); }
+  .option-btn[data-color="RN"].selected { background: var(--lavender); border-color: var(--lavender); }
+  .option-btn[data-color="F"].selected { background: var(--gold); border-color: var(--gold); }
+
+  .free-input {
+    width: 100%;
+    padding: 0.5rem 0.8rem;
+    border: 1.5px solid rgba(44,36,23,0.18);
+    border-radius: 2px;
+    background: rgba(255,255,255,0.5);
+    font-family: 'Caveat', cursive;
+    font-size: 1rem;
+    color: var(--ink);
+    margin-top: 0.4rem;
+  }
+  .free-input:focus { outline: none; border-color: var(--dusty-rose); }
+
+  .submit-btn {
+    width: 100%;
+    padding: 0.9rem;
+    background: var(--ink);
+    color: var(--cream);
+    border: none;
+    border-radius: 2px;
+    cursor: pointer;
+    font-family: 'DM Serif Display', serif;
+    font-style: italic;
+    font-size: 1.1rem;
+    letter-spacing: 0.05em;
+    margin-top: 1rem;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .submit-btn:hover { background: var(--dusty-rose); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(212,137,106,0.3); }
+  .submit-btn:active { transform: translateY(0); }
+
+  /* SUCCESS TOAST */
+  .toast {
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: var(--ink);
+    color: var(--cream);
+    padding: 0.7rem 1.5rem;
+    border-radius: 2px;
+    font-family: 'Caveat', cursive;
+    font-size: 1rem;
+    transition: transform 0.3s ease;
+    z-index: 999;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* ——— PAGE 2: VISUALIZATION ——— */
+  .viz-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: var(--paper);
+    border: 1px solid rgba(44,36,23,0.1);
+  }
+  .legend-section { flex: 1; min-width: 120px; }
+  .legend-title {
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--warm-grey);
+    margin-bottom: 0.4rem;
+    font-weight: 600;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-family: 'Caveat', cursive;
+    font-size: 0.9rem;
+    color: var(--light-ink);
+    margin-bottom: 0.2rem;
+  }
+  .legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .legend-symbol { font-size: 1rem; width: 14px; text-align: center; }
+
+  .day-section { margin-bottom: 2.5rem; }
+  .day-label {
+    font-family: 'Caveat', cursive;
+    font-size: 1.2rem;
+    color: var(--light-ink);
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .day-label span { color: var(--warm-grey); font-size: 0.85rem; }
+
+  .hair-timeline-container {
+    position: relative;
+    height: 160px;
+    margin: 0.5rem 0;
+  }
+
+  .hair-svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .no-data-msg {
+    text-align: center;
+    padding: 3rem 1rem;
+    font-family: 'Caveat', cursive;
+    font-size: 1.1rem;
+    color: var(--warm-grey);
+  }
+
+  /* ——— PAGE 3: HISTORY ——— */
+  .history-grid {
+    display: grid;
+    gap: 0.8rem;
+  }
+
+  .entry-card {
+    background: var(--paper);
+    border: 1px solid rgba(44,36,23,0.1);
+    border-radius: 2px;
+    padding: 1rem;
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    box-shadow: 2px 2px 0 rgba(44,36,23,0.04);
+    transition: all 0.2s;
+  }
+  .entry-card:hover { box-shadow: 3px 3px 0 rgba(44,36,23,0.1); }
+
+  .entry-index {
+    font-family: 'Caveat', cursive;
+    font-size: 0.75rem;
+    color: var(--warm-grey);
+    min-width: 1.5rem;
+    text-align: center;
+    padding-top: 2px;
+  }
+
+  .entry-content { flex: 1; }
+  .entry-time {
+    font-family: 'Caveat', cursive;
+    font-size: 1.05rem;
+    color: var(--dusty-rose);
+    margin-bottom: 0.3rem;
+  }
+  .entry-tags { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+  .entry-tag {
+    padding: 0.15rem 0.5rem;
+    border-radius: 1px;
+    font-family: 'Caveat', cursive;
+    font-size: 0.88rem;
+    color: white;
+  }
+
+  .entry-actions { display: flex; flex-direction: column; gap: 0.4rem; }
+  .btn-keep, .btn-delete {
+    padding: 0.3rem 0.7rem;
+    border: 1.5px solid;
+    border-radius: 2px;
+    cursor: pointer;
+    font-family: 'Caveat', cursive;
+    font-size: 0.85rem;
+    transition: all 0.15s;
+    background: transparent;
+  }
+  .btn-keep { border-color: var(--sage); color: var(--sage); }
+  .btn-keep:hover { background: var(--sage); color: white; }
+  .btn-delete { border-color: var(--dusty-rose); color: var(--dusty-rose); }
+  .btn-delete:hover { background: var(--dusty-rose); color: white; }
+
+  .empty-state {
+    text-align: center;
+    padding: 4rem 1rem;
+    font-family: 'Caveat', cursive;
+    font-size: 1.1rem;
+    color: var(--warm-grey);
+  }
+  .empty-state-icon { font-size: 3rem; display: block; margin-bottom: 1rem; }
+
+  /* Loading */
+  .loading-msg {
+    text-align: center;
+    padding: 2rem;
+    font-family: 'Caveat', cursive;
+    font-size: 1rem;
+    color: var(--warm-grey);
+  }
+
+  .sync-badge {
+    font-family: 'Caveat', cursive;
+    font-size: 0.75rem;
+    color: var(--warm-grey);
+    text-align: right;
+    padding: 0.3rem 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.3rem;
+  }
+  .sync-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--sage);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  @media (max-width: 480px) {
+    .option-group { gap: 0.4rem; }
+    .option-btn { padding: 0.35rem 0.7rem; font-size: 0.95rem; }
+  }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="app-title"><span>~</span>頭髮揮舞日記<span>~</span></div>
+  <div class="app-subtitle">a dear data project · hair edition</div>
+</header>
+
+<nav>
+  <button class="active" onclick="switchPage(0)">✦ 記錄當下</button>
+  <button onclick="switchPage(1)">~ 揮舞日記收成</button>
+  <button onclick="switchPage(2)">◇ 數據歷史紀錄</button>
+</nav>
+
+<div class="toast" id="toast">✓ 已記錄！</div>
+
+<!-- PAGE 1: RECORD -->
+<div class="page active" id="page-0">
+  <div class="page-title">記錄當下</div>
+
+  <div class="form-card">
+    <!-- Time -->
+    <div class="form-row">
+      <label class="form-label">① Time <span>時間點（可手動調整）</span></label>
+      <div class="time-input-wrapper">
+        <input type="datetime-local" id="time-input"/>
+        <button class="time-reset-btn" onclick="resetToNow()">↺ 現在</button>
+      </div>
+    </div>
+
+    <!-- Hand -->
+    <div class="form-row">
+      <label class="form-label">② Hand <span>慣用手</span></label>
+      <div class="option-group" id="hand-group">
+        <button class="option-btn" data-color="L" onclick="select(this,'hand')">左手 L</button>
+        <button class="option-btn" data-color="R" onclick="select(this,'hand')">右手 R</button>
+        <button class="option-btn" data-color="B" onclick="select(this,'hand')">雙手 B</button>
+      </div>
+    </div>
+
+    <!-- Location -->
+    <div class="form-row">
+      <label class="form-label">③ Location <span>頭髮部位</span></label>
+      <div class="option-group" id="location-group">
+        <button class="option-btn" data-color="LB" onclick="select(this,'location')">左耳後 LB</button>
+        <button class="option-btn" data-color="RB" onclick="select(this,'location')">右耳後 RB</button>
+        <button class="option-btn" data-color="LN" onclick="select(this,'location')">左脖子 LN</button>
+        <button class="option-btn" data-color="RN" onclick="select(this,'location')">右脖子 RN</button>
+        <button class="option-btn" data-color="F" onclick="select(this,'location')">額頭 F</button>
+      </div>
+    </div>
+
+    <!-- Context -->
+    <div class="form-row">
+      <label class="form-label">④ Context <span>情境</span></label>
+      <div class="option-group" id="context-group">
+        <button class="option-btn" onclick="select(this,'context')">開會中</button>
+        <button class="option-btn" onclick="select(this,'context')">發呆中</button>
+        <button class="option-btn" onclick="select(this,'context')">寫作業</button>
+        <button class="option-btn" onclick="select(this,'context')">跟人說話</button>
+        <button class="option-btn" onclick="select(this,'context')">風大</button>
+      </div>
+      <input class="free-input" id="context-custom" type="text" placeholder="自由填寫情境..."/>
+    </div>
+
+    <!-- Hair State -->
+    <div class="form-row">
+      <label class="form-label">⑤ Hair State <span>頭髮狀態</span></label>
+      <div class="option-group" id="state-group">
+        <button class="option-btn" onclick="select(this,'state')">剛洗好</button>
+        <button class="option-btn" onclick="select(this,'state')">有點油</button>
+        <button class="option-btn" onclick="select(this,'state')">綁起來時</button>
+        <button class="option-btn" onclick="select(this,'state')">放下來時</button>
+      </div>
+    </div>
+
+    <button class="submit-btn" onclick="saveEntry()">✦ 記錄這一刻</button>
+  </div>
+  <div class="sync-badge"><div class="sync-dot"></div> 即時同步中</div>
+</div>
+
+<!-- PAGE 2: VISUALIZATION -->
+<div class="page" id="page-1">
+  <div class="page-title">揮舞日記收成</div>
+
+  <div class="viz-legend">
+    <div class="legend-section">
+      <div class="legend-title">慣用手</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#5B8FA8"></div>左手 L</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#D4896A"></div>右手 R</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#8B7BAB"></div>雙手 B</div>
+    </div>
+    <div class="legend-section">
+      <div class="legend-title">部位</div>
+      <div class="legend-item"><div class="legend-symbol">◯</div>左耳後</div>
+      <div class="legend-item"><div class="legend-symbol">◇</div>右耳後</div>
+      <div class="legend-item"><div class="legend-symbol">△</div>左脖子</div>
+      <div class="legend-item"><div class="legend-symbol">▽</div>右脖子</div>
+      <div class="legend-item"><div class="legend-symbol">✦</div>額頭</div>
+    </div>
+    <div class="legend-section">
+      <div class="legend-title">頭髮狀態</div>
+      <div class="legend-item"><div class="legend-symbol">·</div>剛洗好</div>
+      <div class="legend-item"><div class="legend-symbol">~</div>有點油</div>
+      <div class="legend-item"><div class="legend-symbol">∧</div>綁起來</div>
+      <div class="legend-item"><div class="legend-symbol">∪</div>放下來</div>
+    </div>
+  </div>
+
+  <div id="viz-container"></div>
+</div>
+
+<!-- PAGE 3: HISTORY -->
+<div class="page" id="page-2">
+  <div class="page-title">數據歷史紀錄</div>
+  <div id="history-container"></div>
+</div>
+
+<script>
+  // ——— STATE ———
+  let entries = [];
+  let selections = { hand: null, location: null, context: null, state: null };
+
+  // ——— FIREBASE CONFIG ———
+  const FIREBASE_URL = 'https://hair-diary-1c252-default-rtdb.asia-southeast1.firebaseio.com';
+  const DB_PATH = '/entries';
+
+  // ——— FIREBASE REST API ———
+  async function loadEntries() {
+    try {
+      const res = await fetch(`${FIREBASE_URL}${DB_PATH}.json`);
+      const data = await res.json();
+      if (data) {
+        // Firebase 回傳物件，轉成陣列並依時間倒序排列
+        entries = Object.values(data).sort((a, b) => b.timestamp - a.timestamp);
+      } else {
+        entries = [];
+      }
+    } catch(e) {
+      console.error('載入失敗', e);
+      entries = [];
+    }
+  }
+
+  async function saveEntries() {
+    // 將 entries 陣列轉成以 id 為 key 的物件存入 Firebase
+    const obj = {};
+    entries.forEach(e => { obj[e.id] = e; });
+    try {
+      await fetch(`${FIREBASE_URL}${DB_PATH}.json`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(obj)
+      });
+    } catch(e) {
+      console.error('儲存失敗', e);
+    }
+  }
+
+  // ——— 即時監聽 Firebase (Server-Sent Events) ———
+  function startRealtimeSync() {
+    const evtSource = new EventSource(`${FIREBASE_URL}${DB_PATH}.json`);
+    evtSource.addEventListener('put', (e) => {
+      try {
+        const payload = JSON.parse(e.data);
+        if (payload.data) {
+          entries = Object.values(payload.data).sort((a, b) => b.timestamp - a.timestamp);
+        } else {
+          entries = [];
+        }
+        renderCurrentPage();
+      } catch(err) {}
+    });
+    evtSource.onerror = () => {
+      // 連線中斷時靜默重試，Firebase SSE 會自動重連
+    };
+  }
+
+  // ——— TIME ———
+  function formatTime(date) {
+    const d = date || new Date();
+    const pad = n => String(n).padStart(2,'0');
+    return `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())}  ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  function toDatetimeLocalValue(date) {
+    const d = date || new Date();
+    const pad = n => String(n).padStart(2,'0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  function resetToNow() {
+    const input = document.getElementById('time-input');
+    if (input) input.value = toDatetimeLocalValue(new Date());
+  }
+
+  function getSelectedTime() {
+    const input = document.getElementById('time-input');
+    if (input && input.value) {
+      return new Date(input.value);
+    }
+    return new Date();
+  }
+
+  // Set initial value on load
+  function initTimeInput() {
+    const input = document.getElementById('time-input');
+    if (input) input.value = toDatetimeLocalValue(new Date());
+  }
+
+  // ——— SELECTIONS ———
+  function select(btn, group) {
+    const container = document.getElementById(group + '-group');
+    container.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selections[group] = btn.textContent.trim();
+  }
+
+  // ——— SAVE ———
+  async function saveEntry() {
+    if (!selections.hand || !selections.location || !selections.state) {
+      alert('請至少填寫：慣用手、頭髮部位、頭髮狀態');
+      return;
+    }
+    const customCtx = document.getElementById('context-custom').value.trim();
+    const selectedTime = getSelectedTime();
+    const entry = {
+      id: Date.now(),
+      time: formatTime(selectedTime),
+      timestamp: selectedTime.getTime(),
+      hand: selections.hand,
+      location: selections.location,
+      context: customCtx || selections.context || '—',
+      state: selections.state
+    };
+    entries.unshift(entry);
+    await saveEntries();
+    showToast('✓ 已記錄！');
+    resetForm();
+  }
+
+  function resetForm() {
+    document.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
+    document.getElementById('context-custom').value = '';
+    selections = { hand: null, location: null, context: null, state: null };
+    resetToNow();
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+  }
+
+  // ——— NAVIGATION ———
+  let currentPage = 0;
+
+  function switchPage(idx) {
+    document.querySelectorAll('.page').forEach((p,i) => p.classList.toggle('active', i===idx));
+    document.querySelectorAll('nav button').forEach((b,i) => b.classList.toggle('active', i===idx));
+    currentPage = idx;
+    renderCurrentPage();
+  }
+
+  function renderCurrentPage() {
+    if (currentPage === 1) renderViz();
+    if (currentPage === 2) renderHistory();
+  }
+
+  // ——— COLORS & SYMBOLS ———
+  const handColor = { '左手 L':'#5B8FA8', '右手 R':'#D4896A', '雙手 B':'#8B7BAB' };
+  const locationSymbol = { '左耳後 LB':'◯', '右耳後 RB':'◇', '左脖子 LN':'△', '右脖子 RN':'▽', '額頭 F':'✦' };
+  const stateSymbol = { '剛洗好':'·', '有點油':'~', '綁起來時':'∧', '放下來時':'∪' };
+  const tagColors = {
+    hand: { '左手 L':'#5B8FA8', '右手 R':'#D4896A', '雙手 B':'#8B7BAB' },
+    location: { '左耳後 LB':'#7A9E7E', '右耳後 RB':'#D4896A', '左脖子 LN':'#5B8FA8', '右脖子 RN':'#8B7BAB', '額頭 F':'#C9A84C' },
+    state: { '剛洗好':'#7A9E7E', '有點油':'#B8A99A', '綁起來時':'#5B8FA8', '放下來時':'#8B7BAB' }
   };
 
-  // 初始化 Firebase
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
-  const entriesRef = ref(db, 'hairEntries');
-
-  let entries = [];
-  let currentPage = 'record';
-
-  // 初始化時間
-  const timeInput = document.getElementById('field-time');
-  function resetTime() {
-    const now = new Date();
-    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-    timeInput.value = now.toISOString().slice(0, 16);
-  }
-  resetTime();
-
-  // 監聽 Firebase 數據變動（即時同步）
-  onValue(entriesRef, (snapshot) => {
-    const data = snapshot.val();
-    entries = [];
-    if (data) {
-      Object.keys(data).forEach(key => {
-        entries.push({ ...data[key], id: key }); // 使用 Firebase 的 key 作為 id
-      });
-    }
-    // 排序數據
-    entries.sort((a, b) => new Date(a.time) - new Date(b.time));
-    
-    // 自動更新當前頁面
-    if (currentPage === 'harvest') drawViz();
-    if (currentPage === 'history') renderHistory();
-  });
-
-  // 切換分頁邏輯
-  window.switchPage = function(pageId) {
-    currentPage = pageId;
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById('page-' + pageId).classList.add('active');
-    event.currentTarget.classList.add('active');
-
-    if (pageId === 'harvest') drawViz();
-    if (pageId === 'history') renderHistory();
+  // ——— VISUALIZATION ———
+  function getDateKey(ts) {
+    const d = new Date(ts);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   }
 
-  // 提交數據到 Firebase
-  window.commitData = async function() {
-    const ctxSelect = document.getElementById('field-ctx').value;
-    const finalCtx = ctxSelect === 'other' ? document.getElementById('other-ctx').value : ctxSelect;
-
-    const newEntry = {
-      time: timeInput.value,
-      hand: document.getElementById('field-hand').value,
-      location: document.getElementById('field-loc').value,
-      context: finalCtx || '—',
-      state: document.getElementById('field-state').value,
-      createdAt: Date.now()
-    };
-
-    try {
-      await push(entriesRef, newEntry);
-      alert('數據已同步至雲端');
-      resetTime();
-      document.getElementById('other-ctx').value = '';
-      document.getElementById('other-ctx').style.display = 'none';
-      document.getElementById('field-ctx').value = '開會中';
-    } catch (e) {
-      alert('同步失敗：' + e.message);
-    }
+  function getDateLabel(key) {
+    const [y,m,d] = key.split('-');
+    const days = ['日','一','二','三','四','五','六'];
+    const dt = new Date(+y, +m-1, +d);
+    return `${m}月${d}日（週${days[dt.getDay()]}）`;
   }
 
-  // 從 Firebase 刪除數據
-  window.deleteEntry = async function(id) {
-    if (confirm('確定要刪除這筆紀錄嗎？這將會同步影響到視覺化圖表。')) {
-      await remove(ref(db, `hairEntries/${id}`));
-    }
-  }
-
-  // --- 視覺化繪圖邏輯 (完全保留你原本的邏輯) ---
-  function drawViz() {
-    const canvas = document.getElementById('hairCanvas');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = canvas.offsetWidth * dpr;
-    canvas.height = canvas.offsetHeight * dpr;
-    ctx.scale(dpr, dpr);
-
-    ctx.clearRect(0, 0, canvas.offsetWidth, canvas.offsetHeight);
-
-    // 繪製背景髮絲
-    for (let i = 0; i < 3; i++) {
-      ctx.beginPath();
-      ctx.strokeStyle = `rgba(44, 36, 23, ${0.05 + i * 0.05})`;
-      ctx.lineWidth = 1.5;
-      const yBase = 100 + i * 140;
-      ctx.moveTo(0, yBase);
-      ctx.bezierCurveTo(canvas.offsetWidth * 0.3, yBase - 80, canvas.offsetWidth * 0.7, yBase + 80, canvas.offsetWidth, yBase);
-      ctx.stroke();
+  function renderViz() {
+    const container = document.getElementById('viz-container');
+    if (entries.length === 0) {
+      container.innerHTML = '<div class="no-data-msg">~<br/>尚無記錄<br/>快去搖頭髮吧</div>';
+      return;
     }
 
-    // 繪製數據點
+    // Group by day, get last 3 days that have data
+    const byDay = {};
     entries.forEach(e => {
-      const d = new Date(e.time);
-      const hour = d.getHours() + d.getMinutes() / 60;
-      const dayIdx = d.getDate() % 3;
-      const x = (hour / 24) * canvas.offsetWidth;
-      const yBase = 100 + dayIdx * 140;
+      const key = getDateKey(e.timestamp);
+      if (!byDay[key]) byDay[key] = [];
+      byDay[key].push(e);
+    });
+    const days = Object.keys(byDay).sort().slice(-3);
 
-      const locMap = { '左耳後(LB)': -30, '右耳後(RB)': 30, '左脖子(LN)': 60, '右脖子(RN)': 80, '額頭(F)': -60 };
-      const y = yBase + (locMap[e.location] || 0);
+    container.innerHTML = '';
+    days.forEach(day => {
+      const dayEntries = byDay[day].slice().sort((a,b) => a.timestamp - b.timestamp);
+      const section = document.createElement('div');
+      section.className = 'day-section';
+      section.innerHTML = `<div class="day-label">${getDateLabel(day)} <span>${dayEntries.length} 次</span></div>`;
 
-      const colors = { '左手(L)': '#D4896A', '右手(R)': '#7A9E7E', '雙手(B)': '#C9A84C' };
-      ctx.fillStyle = colors[e.hand] || '#2C2417';
-      
-      ctx.beginPath();
-      if (e.state === '剛洗好') ctx.arc(x, y, 6, 0, Math.PI * 2);
-      else if (e.state === '有點油') { ctx.rect(x - 5, y - 5, 10, 10); }
-      else if (e.state === '綁起來時') { ctx.moveTo(x, y - 7); ctx.lineTo(x + 7, y + 7); ctx.lineTo(x - 7, y + 7); ctx.closePath(); }
-      else { ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.stroke(); }
-      ctx.fill();
+      const svgContainer = document.createElement('div');
+      svgContainer.className = 'hair-timeline-container';
+      svgContainer.innerHTML = buildHairSVG(dayEntries);
+      section.appendChild(svgContainer);
+      container.appendChild(section);
     });
   }
 
-  // --- 渲染歷史列表 (完全保留你原本的 UI) ---
+  function buildHairSVG(dayEntries) {
+    const W = 640, H = 160;
+    const n = dayEntries.length;
+    if (n === 0) return '';
+
+    // Build a flowing hair strand path using sine wave
+    const margin = 40;
+    const usableW = W - margin * 2;
+
+    // Spine: gentle sine wave
+    const pts = 120;
+    let spine = [];
+    for (let i = 0; i <= pts; i++) {
+      const t = i / pts;
+      const x = margin + t * usableW;
+      const y = H/2 + Math.sin(t * Math.PI * 3) * 35 + Math.sin(t * Math.PI * 7 + 1) * 12;
+      spine.push([x, y]);
+    }
+
+    // Build smooth path
+    let pathD = `M ${spine[0][0]} ${spine[0][1]}`;
+    for (let i = 1; i < spine.length; i++) {
+      const prev = spine[i-1], curr = spine[i];
+      const cpx = (prev[0] + curr[0]) / 2;
+      pathD += ` Q ${cpx} ${prev[1]} ${curr[0]} ${curr[1]}`;
+    }
+
+    // Whisker strands (decorative)
+    let whiskers = '';
+    for (let i = 0; i < 8; i++) {
+      const t = (i + 1) / 9;
+      const idx = Math.floor(t * (spine.length - 1));
+      const [bx, by] = spine[idx];
+      const angle = -30 + Math.random() * 60;
+      const len = 15 + Math.random() * 20;
+      const ex = bx + Math.cos(angle * Math.PI/180) * len;
+      const ey = by + Math.sin(angle * Math.PI/180) * len;
+      whiskers += `<line x1="${bx}" y1="${by}" x2="${ex}" y2="${ey}" stroke="#B8A99A" stroke-width="1" stroke-opacity="0.4"/>`;
+    }
+
+    // Plot entries along the spine
+    let dots = '';
+    dayEntries.forEach((entry, i) => {
+      const t = n === 1 ? 0.5 : i / (n - 1);
+      const idx = Math.floor(t * (spine.length - 1));
+      const [cx, cy] = spine[Math.min(idx, spine.length-1)];
+      const color = handColor[entry.hand] || '#B8A99A';
+      const symbol = locationSymbol[entry.location] || '·';
+      const stSym = stateSymbol[entry.state] || '·';
+
+      // Draw glyph
+      dots += `<g transform="translate(${cx},${cy})">
+        <circle r="13" fill="${color}" fill-opacity="0.2" stroke="${color}" stroke-width="1.5"/>
+        <text text-anchor="middle" dominant-baseline="central" font-size="11" fill="${color}" font-family="serif">${symbol}</text>
+        <text x="15" y="-12" font-size="9" fill="#6B5B3E" font-family="Caveat,cursive">${stSym}</text>
+      </g>`;
+    });
+
+    // Time labels at start and end
+    const firstTime = dayEntries[0].time.split('  ')[1] || '';
+    const lastTime = dayEntries[n-1].time.split('  ')[1] || '';
+    const timeLabels = n > 1 ? `
+      <text x="${margin}" y="${H-8}" font-size="9" fill="#B8A99A" font-family="Caveat,cursive" text-anchor="middle">${firstTime}</text>
+      <text x="${W-margin}" y="${H-8}" font-size="9" fill="#B8A99A" font-family="Caveat,cursive" text-anchor="middle">${lastTime}</text>
+    ` : `<text x="${margin + usableW/2}" y="${H-8}" font-size="9" fill="#B8A99A" font-family="Caveat,cursive" text-anchor="middle">${firstTime}</text>`;
+
+    return `<svg class="hair-svg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">
+      <defs>
+        <linearGradient id="hairGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#C9A84C" stop-opacity="0.3"/>
+          <stop offset="50%" stop-color="#D4896A" stop-opacity="0.5"/>
+          <stop offset="100%" stop-color="#8B7BAB" stop-opacity="0.3"/>
+        </linearGradient>
+      </defs>
+      ${whiskers}
+      <path d="${pathD}" fill="none" stroke="url(#hairGrad)" stroke-width="2.5" stroke-linecap="round"/>
+      ${dots}
+      ${timeLabels}
+    </svg>`;
+  }
+
+  // ——— HISTORY ———
   function renderHistory() {
-    const list = document.getElementById('history-list');
-    list.innerHTML = '';
-    const displayEntries = [...entries].reverse();
-    
-    displayEntries.forEach((e, i) => {
-      const handC = e.hand.includes('L') ? '#D4896A' : (e.hand.includes('R') ? '#7A9E7E' : '#C9A84C');
-      const locC = '#5B8FA8';
-      const stateC = '#8B7BAB';
+    const container = document.getElementById('history-container');
+    if (entries.length === 0) {
+      container.innerHTML = `<div class="empty-state"><span class="empty-state-icon">~</span>尚無紀錄<br/>先去第一頁記錄吧</div>`;
+      return;
+    }
 
-      const div = document.createElement('div');
-      div.className = 'history-card';
-      div.innerHTML = `
-        <div class="entry-index">${displayEntries.length - i}</div>
-        <div class="entry-content">
-          <div class="entry-time">${e.time}</div>
-          <div class="entry-tags">
-            <span class="entry-tag" style="background:${handC}">${e.hand}</span>
-            <span class="entry-tag" style="background:${locC}">${e.location}</span>
-            <span class="entry-tag" style="background:${stateC}">${e.state}</span>
-            ${e.context !== '—' ? `<span class="entry-tag" style="background:#B8A99A">${e.context}</span>` : ''}
-          </div>
-        </div>
-        <div class="entry-actions">
-          <button class="btn-delete" onclick="deleteEntry('${e.id}')">刪除 ✕</button>
-        </div>
-      `;
-      list.appendChild(div);
-    });
+    container.innerHTML = `<div class="history-grid">${entries.map((e, i) => entryCard(e, i)).join('')}</div>`;
   }
+
+  function entryCard(e, i) {
+    const handC = tagColors.hand[e.hand] || '#B8A99A';
+    const locC = tagColors.location[e.location] || '#B8A99A';
+    const stateC = tagColors.state[e.state] || '#B8A99A';
+
+    return `<div class="entry-card" id="card-${e.id}">
+      <div class="entry-index">${entries.length - i}</div>
+      <div class="entry-content">
+        <div class="entry-time">${e.time}</div>
+        <div class="entry-tags">
+          ${e.hand ? `<span class="entry-tag" style="background:${handC}">${e.hand}</span>` : ''}
+          ${e.location ? `<span class="entry-tag" style="background:${locC}">${e.location}</span>` : ''}
+          ${e.state ? `<span class="entry-tag" style="background:${stateC}">${e.state}</span>` : ''}
+          ${e.context && e.context !== '—' ? `<span class="entry-tag" style="background:#B8A99A">${e.context}</span>` : ''}
+        </div>
+      </div>
+      <div class="entry-actions">
+        <button class="btn-keep" onclick="keepEntry(${e.id})">保留 ✓</button>
+        <button class="btn-delete" onclick="deleteEntry(${e.id})">刪除 ✕</button>
+      </div>
+    </div>`;
+  }
+
+  async function keepEntry(id) {
+    const card = document.getElementById('card-' + id);
+    if (card) {
+      card.style.borderColor = 'var(--sage)';
+      card.style.background = 'rgba(122,158,126,0.08)';
+      setTimeout(() => { card.style.borderColor = ''; card.style.background = ''; }, 1000);
+    }
+  }
+
+  async function deleteEntry(id) {
+    entries = entries.filter(e => e.id !== id);
+    await saveEntries();
+    renderHistory();
+    if (currentPage === 1) renderViz();
+  }
+
+  // ——— INIT ———
+  async function init() {
+    await loadEntries();
+    initTimeInput();
+    startRealtimeSync();
+  }
+
+  init();
 </script>
+</body>
+</html>
